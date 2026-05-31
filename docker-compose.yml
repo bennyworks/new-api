@@ -21,7 +21,7 @@ services:
     restart: always
     command: --log-dir /app/logs
     ports:
-      - "3000:3000"
+      - "3000"
     volumes:
       - ./data:/data
       - ./logs:/app/logs
@@ -39,6 +39,10 @@ services:
 #      - GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX  # Google Analytics 的测量 ID (Google Analytics Measurement ID)
 #      - UMAMI_WEBSITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # Umami 网站 ID (Umami Website ID)
 #      - UMAMI_SCRIPT_URL=https://analytics.umami.is/script.js  # Umami 脚本 URL，默认为官方地址 (Umami Script URL, defaults to official URL)
+      - VIRTUAL_HOST=mh.api.d1xf.cn
+      - LETSENCRYPT_HOST=mh.api.d1xf.cn
+      - FRONTEND_BASE_URL=https://mh.api.d1xf.cn
+      - VIRTUAL_PORT=3000
 
     depends_on:
       - redis
@@ -72,8 +76,41 @@ services:
       - pg_data:/var/lib/postgresql/data
     networks:
       - new-api-network
-#    ports:
-#      - "5432:5432"  # Uncomment if you need to access PostgreSQL from outside Docker
+
+  # ==================== Nginx Reverse Proxy + Let's Encrypt ====================
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy:latest
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - nginx_certs:/etc/nginx/certs:ro
+      - nginx_vhost:/etc/nginx/vhost.d
+      - nginx_html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - new-api-network
+    labels:
+      - "com.github.nginx-proxy.nginx=true"
+
+  acme-companion:
+    image: nginxproxy/acme-companion:latest
+    container_name: acme-companion
+    restart: always
+    volumes:
+      - nginx_certs:/etc/nginx/certs
+      - nginx_vhost:/etc/nginx/vhost.d
+      - nginx_html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DEFAULT_EMAIL=bennyworks@foxmail.com  # Let's Encrypt 通知邮箱
+    networks:
+      - new-api-network
+    depends_on:
+      - nginx-proxy
+
 
 #  mysql:
 #    image: mysql:8.2
@@ -91,6 +128,9 @@ services:
 
 volumes:
   pg_data:
+  nginx_certs:
+  nginx_vhost:
+  nginx_html:
 #  mysql_data:
 
 networks:
