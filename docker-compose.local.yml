@@ -1,0 +1,29 @@
+# Local Development - uses prebuilt image, reuses existing lc_postgres / lc_redis
+#
+# Prerequisites:
+#   - lc_postgres and lc_redis containers running
+#   - new-api database created: docker exec lc_postgres psql -U postgres -c "CREATE DATABASE \"new-api\";"
+#
+# Usage:
+#   docker compose -f docker-compose.local.yml up -d
+#   docker compose -f docker-compose.local.yml down
+
+services:
+  new-api:
+    image: calciumion/new-api:latest
+    container_name: new-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - SQL_DSN=postgresql://postgres:123456@host.docker.internal:5432/new-api
+      - REDIS_CONN_STRING=redis://host.docker.internal:6379
+      - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      - NODE_NAME=new-api-node-1
+      - VIRTUAL_HOST=localhost
+      - FRONTEND_BASE_URL=http://localhost:3000
+    command: --log-dir /app/logs

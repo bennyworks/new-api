@@ -136,6 +136,11 @@ For request structs that are parsed from client JSON and then re-marshaled to up
 
 When working on tiered/dynamic billing (expression-based pricing), you MUST read `pkg/billingexpr/expr.md` first. It documents the design philosophy, expression language (variables, functions, examples), full system architecture (editor → storage → pre-consume → settlement → log display), token normalization rules (`p`/`c` auto-exclusion), quota conversion, and expression versioning. All code changes to the billing expression system must follow the patterns described in that document.
 
-### Rule 8: Operations & Maintenance — Read `OPS.md` First
+### Rule 8: Operations & Maintenance — Read OPS Files First
 
-Before performing any operations or maintenance tasks (deployment, configuration changes, container management, database operations, upgrades, backups, troubleshooting), you MUST read `OPS.md` first to understand the current environment. If you discover new operations knowledge during the task that isn't documented in `OPS.md`, you MUST add it to `OPS.md` after completing the operations work.
+Before performing any operations or maintenance tasks (deployment, configuration changes, container management, database operations, upgrades, backups, troubleshooting), you MUST read the appropriate OPS file first:
+
+- **`OPS.prod.md`** — production environment (Linux server, docker-compose, nginx-proxy, Let's Encrypt SSL)
+- **`OPS.dev.md`** — local development environment (macOS, standalone Docker container, reuses lc_postgres/lc_redis)
+
+If you discover new operations knowledge during the task that isn't documented, you MUST add it to the relevant OPS file after completing the operations work.
