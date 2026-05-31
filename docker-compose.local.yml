@@ -1,4 +1,4 @@
-# Local Development - uses prebuilt image, reuses existing lc_postgres / lc_redis
+# Local Development - builds backend from source, reuses existing lc_postgres / lc_redis
 #
 # Prerequisites:
 #   - lc_postgres and lc_redis containers running
@@ -6,11 +6,18 @@
 #
 # Usage:
 #   docker compose -f docker-compose.local.yml up -d
+#   docker compose -f docker-compose.local.yml up -d --build  # rebuild after Go code changes
 #   docker compose -f docker-compose.local.yml down
+#
+# Frontend dev (separate terminal):
+#   cd web/default && bun install && bun run dev  # → http://localhost:3001
 
 services:
   new-api:
-    image: calciumion/new-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.local
+    image: new-api-local:latest
     container_name: new-api
     restart: unless-stopped
     ports:

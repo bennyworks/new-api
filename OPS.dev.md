@@ -10,7 +10,7 @@
 
 | 容器 | 镜像 | 用途 | 端口 |
 |------|------|------|------|
-| `new-api` | `calciumion/new-api:latest` | AI API 网关主程序 | 3000 (宿主机) |
+| `new-api` | `new-api-local:latest`（本地源码构建） | AI API 网关主程序 | 3000 (宿主机) |
 | `lc_postgres` | `postgres:15` | 主数据库（复用现有） | 5432 (宿主机) |
 | `lc_redis` | `redis:latest` | 缓存（复用现有） | 6379 (宿主机) |
 
@@ -33,7 +33,7 @@ new-api 通过 `host.docker.internal` 连接宿主机上的 PostgreSQL 和 Redis
 
 ## 二、启动/停止
 
-使用 `docker-compose.local.yml`：
+使用 `docker-compose.local.yml`（从本地源码构建后端，使用 Dockerfile.dev.local）：
 
 ```bash
 cd /Users/chenjianbin/Documents/git_workspace/new-api
@@ -41,12 +41,27 @@ cd /Users/chenjianbin/Documents/git_workspace/new-api
 # 启动（首次需先创建数据库，见第五节）
 docker compose -f docker-compose.local.yml up -d
 
+# Go 代码修改后重建后端
+docker compose -f docker-compose.local.yml up -d --build
+
 # 停止
 docker compose -f docker-compose.local.yml down
 
 # 重启
 docker compose -f docker-compose.local.yml restart
 ```
+
+### 前端开发
+
+后端运行在 `:3000`，前端 dev server 运行在 `:3001`，API 自动代理到后端：
+
+```bash
+cd web/default
+bun install
+bun run dev     # → http://localhost:3001
+```
+
+修改前端代码后热更新即时生效。
 
 ---
 
