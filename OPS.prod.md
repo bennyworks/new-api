@@ -225,18 +225,19 @@ mkdir -p /root/opt/token-api-platform/backups
 ### 6.1 版本管理策略
 
 ```
-upstream/main ──→ origin/main（纯上游镜像）──→ dev（自定义提交）
-                                                   │
-                                                   └── 前端首页定制
+upstream tag ──→ origin/main（跟踪上游稳定 tag）──→ dev（自定义提交）
+                                                          │
+                                                          └── 前端首页定制 + 运维配置
 ```
 
-- `main`：紧跟 `upstream/main`，不做任何自定义修改
+- `main`：跟踪上游**稳定 tag**（而非 upstream/main HEAD），确保只引入经过验证的发布版本
 - `dev`：工作分支，承载所有自定义提交（前端改动 + 运维配置）
 
-日常同步上游：
+日常同步上游（tag 驱动）：
 
 ```bash
-git checkout main && git pull upstream main && git push origin main
+git fetch upstream --tags
+git checkout main && git merge $(git describe --tags --abbrev=0 upstream/main) && git push origin main
 git checkout dev && git merge main
 ```
 
@@ -250,8 +251,8 @@ cd /Users/chenjianbin/Documents/git_workspace/new-api
 # 构建镜像
 docker build -t bennyworks/new-api:latest .
 
-# 带版本号构建
-docker build -t bennyworks/new-api:latest -t bennyworks/new-api:v$(cat VERSION) .
+# 带版本号构建（使用当前跟踪的 tag）
+docker build -t bennyworks/new-api:latest -t bennyworks/new-api:$(git describe --tags --abbrev=0 main) .
 ```
 
 ### 6.3 推送镜像

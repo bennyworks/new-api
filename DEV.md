@@ -10,14 +10,17 @@
 ## 分支策略
 
 ```
-upstream/main  ──●──────────●──────────●──  (原项目稳定发布分支)
+upstream tags  ──●──────────●──────────●──  (原项目稳定发布版本)
                   ↘          ↘          ↗
-origin/main     ──●──────────●──────────●──  (你的 main，紧跟 upstream/main)
+origin/main     ──●──────────●──────────●──  (你的 main，跟随 upstream tag)
                      ↘
 origin/dev      ──────────▲──▲──▲──▲──▲──  (你的开发分支，累积二开改动)
 ```
 
-核心原则：**用独立分支管理你的二开代码，`main` 分支保持与 upstream 同步。**
+核心原则：
+- **用独立分支管理你的二开代码**
+- **`main` 分支跟踪 upstream 的稳定 tag，而非跟踪 upstream/main HEAD**
+- **不直接使用 upstream/main 的未发布代码，避免引入未充分测试的提交**
 
 ## 初始化开发分支
 
@@ -25,10 +28,10 @@ origin/dev      ──────────▲──▲──▲──▲─�
 # 1. 添加 upstream remote（仅首次）
 git remote add upstream https://github.com/QuantumNous/new-api.git
 
-# 2. 拉取上游，同步 main
-git fetch upstream
+# 2. 拉取上游 tags，同步 main 到最新 tag
+git fetch upstream --tags
 git checkout main
-git merge upstream/main
+git merge $(git describe --tags --abbrev=0 upstream/main)
 git push origin main
 
 # 3. 基于 main 创建开发分支
@@ -46,23 +49,30 @@ git push -u origin dev
 
 ## 跟进 Upstream 更新
 
-当原项目有新版本时：
+当原项目发布新版本（tag）时：
 
 ```bash
-# 1. 切到 main，拉取上游更新
-git checkout main
-git pull upstream main
+# 1. 拉取上游最新 tags
+git fetch upstream --tags
 
-# 2. 推送到你的 fork（保持 fork 的 main 也是最新的）
+# 2. 查看最新 tag
+LATEST_TAG=$(git describe --tags --abbrev=0 upstream/main)
+echo "最新 tag: $LATEST_TAG"
+
+# 3. 同步 main 到最新 tag
+git checkout main
+git merge $LATEST_TAG
 git push origin main
 
-# 3. 把上游更新合并到你的开发分支
+# 4. 把 tag 更新合并到你的开发分支
 git checkout dev
 git merge main
 
-# 4. 解决冲突（如果有），然后推送
+# 5. 解决冲突（如果有），然后推送
 git push origin dev
 ```
+
+> 注意：通过跟踪 tag 而非 upstream/main HEAD，确保只引入经过上游验证的稳定版本。
 
 ## 使用 Rebase 保持历史整洁
 
@@ -94,8 +104,10 @@ git push -f origin dev
 
 | 操作 | 命令 |
 |------|------|
-| 同步上游最新代码 | `git checkout main && git pull upstream main && git push origin main` |
+| 同步上游最新 tag | `git fetch upstream --tags && git checkout main && git merge $(git describe --tags --abbrev=0 upstream/main) && git push origin main` |
 | 把上游更新合入二开 | `git checkout dev && git merge main` |
+| 查看当前跟踪的 tag | `git describe --tags --abbrev=0 main` |
+| 查看可用的上游 tag | `git tag --sort=-creatordate \| head -10` |
 | 查看二开改了哪些 | `git diff main...dev` |
 | 查看二开改了哪些文件 | `git diff main...dev --stat` |
 | 查看某个文件的改动 | `git diff main...dev -- path/to/file` |
