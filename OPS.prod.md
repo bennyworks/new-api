@@ -278,7 +278,18 @@ docker-compose up -d --no-deps new-api
 
 ## 七、升级 new-api
 
-### 7.1 升级步骤
+项目使用 GORM AutoMigrate，应用启动时自动同步数据库 schema（新增字段、新建表），无需手动执行 SQL。
+
+### 7.1 升级前准备
+
+```bash
+cd /root/opt/token-api-platform
+
+# 备份数据库（必须执行）
+docker exec postgres pg_dump -U root new-api | gzip > backup_pre_upgrade_$(date +%Y%m%d_%H%M).sql.gz
+```
+
+### 7.2 执行升级
 
 ```bash
 cd /root/opt/token-api-platform
@@ -286,25 +297,30 @@ cd /root/opt/token-api-platform
 # 拉取最新自定义镜像
 docker-compose pull new-api
 
-# 重启服务 (数据库和缓存不受影响)
+# 重启服务 (数据库和缓存不受影响，AutoMigrate 在启动时自动执行)
 docker-compose up -d --no-deps new-api
 
-# 查看日志确认启动正常
+# 查看日志确认启动正常（注意观察有无迁移报错）
 docker-compose logs -f new-api
 ```
 
-### 7.2 回滚
+### 7.3 回滚
 
-如需回滚到指定版本，编辑 `docker-compose.yml` 中 new-api 的 `image` 字段：
+回滚镜像不会自动回滚数据库 schema。如果升级后发现问题：
 
-```yaml
-image: bennyworks/new-api:v1.0.0-rc.9
-```
-
-然后重启：
 ```bash
+# 1. 回滚镜像版本（编辑 docker-compose.yml）
+# image: bennyworks/new-api:latest  →  image: bennyworks/new-api:旧版本tag
+
 docker-compose up -d --no-deps new-api
+
+# 2. 如果数据库 schema 变更导致旧镜像无法正常运行，恢复备份
+gunzip < backup_pre_upgrade_YYYYMMDD_HHMM.sql.gz | docker exec -i postgres psql -U root -d new-api
+
+docker-compose restart new-api
 ```
+
+> **注意**：恢复备份会丢失升级期间产生的数据。如果只是前端改动，数据库 schema 不变，只需回滚镜像即可，无需恢复数据库。
 
 ---
 
@@ -460,8 +476,9 @@ curl http://localhost/api/status        # API 状态
 curl -s http://localhost/api/status | python3 -m json.tool     # 格式化输出
 
 # --- 升级 ---
+docker exec postgres pg_dump -U root new-api | gzip > backup_pre_upgrade.sql.gz  # 升级前备份
 docker-compose pull new-api             # 拉取新镜像
-docker-compose up -d --no-deps new-api  # 滚动更新
+docker-compose up -d --no-deps new-api  # 滚动更新（自动执行 DB 迁移）
 
 # --- 清理 ---
 docker system prune -f                  # 清理无用资源
