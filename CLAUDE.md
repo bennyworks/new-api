@@ -144,3 +144,9 @@ Before performing any operations or maintenance tasks (deployment, configuration
 - **`OPS.dev.md`** — local development environment (macOS, standalone Docker container, reuses lc_postgres/lc_redis)
 
 If you discover new operations knowledge during the task that isn't documented, you MUST add it to the relevant OPS file after completing the operations work.
+
+### Rule 9: Development Workflow — Read DEV.md First
+
+Before working on development workflow, branch strategy, git operations, or upstream sync tasks, you MUST read **`DEV.md`** first. It documents the fork-based branch strategy (`main` tracks `upstream/main`, custom changes on `dev`), remote configuration, sync procedures, and conflict resolution patterns.
+
+If you discover new development workflow knowledge during the task that isn't documented, you MUST add it to `DEV.md` after completing the work.

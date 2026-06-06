@@ -135,3 +135,18 @@ For request structs that are parsed from client JSON and then re-marshaled to up
 ### Rule 7: Billing Expression System — Read `pkg/billingexpr/expr.md`
 
 When working on tiered/dynamic billing (expression-based pricing), you MUST read `pkg/billingexpr/expr.md` first. It documents the design philosophy, expression language (variables, functions, examples), full system architecture (editor → storage → pre-consume → settlement → log display), token normalization rules (`p`/`c` auto-exclusion), quota conversion, and expression versioning. All code changes to the billing expression system must follow the patterns described in that document.
+
+### Rule 8: Operations & Maintenance — Read OPS Files First
+
+Before performing any operations or maintenance tasks (deployment, configuration changes, container management, database operations, upgrades, backups, troubleshooting), you MUST read the appropriate OPS file first:
+
+- **`OPS.prod.md`** — production environment (Linux server, docker-compose, nginx-proxy, Let's Encrypt SSL)
+- **`OPS.dev.md`** — local development environment (macOS, standalone Docker container, reuses lc_postgres/lc_redis)
+
+If you discover new operations knowledge during the task that isn't documented, you MUST add it to the relevant OPS file after completing the operations work.
+
+### Rule 9: Development Workflow — Read DEV.md First
+
+Before working on development workflow, branch strategy, git operations, or upstream sync tasks, you MUST read **`DEV.md`** first. It documents the fork-based branch strategy (`main` tracks `upstream/main`, custom changes on `dev`), remote configuration, sync procedures, and conflict resolution patterns.
+
+If you discover new development workflow knowledge during the task that isn't documented, you MUST add it to `DEV.md` after completing the work.
