@@ -11,16 +11,17 @@
 
 ```
 upstream tags  ──●──────────●──────────●──  (原项目稳定发布版本)
-                  ↘          ↘          ↗
-origin/main     ──●──────────●──────────●──  (你的 main，跟随 upstream tag)
-                     ↘
-origin/dev      ──────────▲──▲──▲──▲──▲──  (你的开发分支，累积二开改动)
+                     ↘          ↘
+origin/dev      ──────▲──▲──────▲──▲──────  (工作台：merge upstream tag + 二开改动)
+                         ↘          ↘
+origin/main     ──────────●──────────●─────  (生产线：只接受 dev 合并，构建镜像 & 发布)
 ```
 
 核心原则：
-- **用独立分支管理你的二开代码**
-- **`main` 分支跟踪 upstream 的稳定 tag，而非跟踪 upstream/main HEAD**
-- **不直接使用 upstream/main 的未发布代码，避免引入未充分测试的提交**
+- **所有二开代码和 upstream 同步都在 `dev` 分支上进行**
+- **`dev` 是工作台**：在这里 merge upstream tag、解决冲突、写新功能
+- **`main` 是生产线**：只接受来自 `dev` 的合并（`git merge --no-ff dev`），不在 `main` 上直接提交或解决冲突
+- **冲突隔离**：upstream tag 先合入 `dev`，充分测试后再合入 `main`，避免冲突污染生产环境
 
 ## 初始化开发分支
 
@@ -28,51 +29,57 @@ origin/dev      ──────────▲──▲──▲──▲─�
 # 1. 添加 upstream remote（仅首次）
 git remote add upstream https://github.com/QuantumNous/new-api.git
 
-# 2. 拉取上游 tags，同步 main 到最新 tag
+# 2. 拉取上游 tags
 git fetch upstream --tags
+
+# 3. 基于最新上游 tag 创建 main（生产线）
 git checkout main
 git merge $(git describe --tags --abbrev=0 upstream/main)
 git push origin main
 
-# 3. 基于 main 创建开发分支
+# 4. 基于 main 创建 dev 分支（工作台）
 git checkout -b dev main
 
-# 4. 在上面做你的二开修改，然后提交
+# 5. 在 dev 上做二开修改，然后提交
 git add ...
 git commit -m "feat: 自定义某某功能"
 
-# 5. 推送到你的 fork
-git push -u origin dev
+# 6. 测试通过后，合入 main 并推送
+git checkout main
+git merge --no-ff dev
+git push origin main dev
 ```
 
-所有二开代码都在 `dev` 分支上迭代。
+所有二开代码都在 `dev` 分支上迭代，`main` 只通过 `git merge --no-ff dev` 接收更新。
 
 ## 跟进 Upstream 更新
 
-当原项目发布新版本（tag）时：
+当原项目发布新版本（tag）时，遵循 **先 dev 后 main** 的流程：
 
 ```bash
 # 1. 拉取上游最新 tags
 git fetch upstream --tags
 
-# 2. 查看最新 tag
+# 2. 查看可用 tag
 LATEST_TAG=$(git describe --tags --abbrev=0 upstream/main)
 echo "最新 tag: $LATEST_TAG"
 
-# 3. 同步 main 到最新 tag
-git checkout main
-git merge $LATEST_TAG
-git push origin main
-
-# 4. 把 tag 更新合并到你的开发分支
+# 3. 在 dev 上合并新 tag（冲突在这里解决）
 git checkout dev
-git merge main
+git merge $LATEST_TAG
 
-# 5. 解决冲突（如果有），然后推送
-git push origin dev
+# 4. 解决冲突（如果有），然后充分测试
+# 编辑冲突文件 → git add . → git commit
+
+# 5. 测试通过后，将 dev 合并到 main（用 --no-ff 保留合并节点）
+git checkout main
+git merge --no-ff dev
+
+# 6. 推送两条分支
+git push origin main dev
 ```
 
-> 注意：通过跟踪 tag 而非 upstream/main HEAD，确保只引入经过上游验证的稳定版本。
+> **为什么先在 dev 合并？** 冲突只发生在 `dev`（工作台），`main`（生产线）接收的始终是经过测试的干净合并，不会在部署环节遇到意外冲突。如果 `dev` 上合并失败，可以 `git merge --abort` 重来，对 `main` 零影响。
 
 ## 使用 Rebase 保持历史整洁
 
@@ -104,8 +111,8 @@ git push -f origin dev
 
 | 操作 | 命令 |
 |------|------|
-| 同步上游最新 tag | `git fetch upstream --tags && git checkout main && git merge $(git describe --tags --abbrev=0 upstream/main) && git push origin main` |
-| 把上游更新合入二开 | `git checkout dev && git merge main` |
+| 在 dev 上合入上游 tag | `git checkout dev && git merge $(git describe --tags --abbrev=0 upstream/main)` |
+| 将 dev 发布到 main | `git checkout main && git merge --no-ff dev && git push origin main dev` |
 | 查看当前跟踪的 tag | `git describe --tags --abbrev=0 main` |
 | 查看可用的上游 tag | `git tag --sort=-creatordate \| head -10` |
 | 查看二开改了哪些 | `git diff main...dev` |
@@ -116,8 +123,9 @@ git push -f origin dev
 ## 冲突解决流程
 
 ```bash
-# 1. 合并时出现冲突
-git merge main
+# 1. 在 dev 上合并 upstream tag 时出现冲突
+git checkout dev
+git merge v1.2.3
 # CONFLICT: ...
 
 # 2. 查看冲突文件
@@ -132,8 +140,10 @@ git add <conflicted-file>
 # 5. 完成合并
 git commit
 
-# 6. 推送
-git push origin dev
+# 6. 测试通过后，合入 main
+git checkout main
+git merge --no-ff dev
+git push origin main dev
 ```
 
 ## 完全舍弃二开、重新开始
