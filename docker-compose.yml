@@ -16,7 +16,7 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    image: calciumion/new-api:latest
+    image: bennyworks/new-api:latest  # 自定义构建镜像（包含前端定制），构建方法见 OPS.prod.md
     container_name: new-api
     restart: always
     command: --log-dir /app/logs

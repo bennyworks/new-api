@@ -10,11 +10,11 @@
 ## 分支策略
 
 ```
-upstream/main  ──●──●──●──●──●──●──  (原项目主分支，不断更新)
-                   ↘        ↗
-origin/main    ──●──●──●──●──●──●──  (你的 main，紧跟 upstream)
-                        ↘
-origin/dev     ──────────▲──▲──▲──  (你的开发分支，累积二开改动)
+upstream/main  ──●──────────●──────────●──  (原项目稳定发布分支)
+                  ↘          ↘          ↗
+origin/main     ──●──────────●──────────●──  (你的 main，紧跟 upstream/main)
+                     ↘
+origin/dev      ──────────▲──▲──▲──▲──▲──  (你的开发分支，累积二开改动)
 ```
 
 核心原则：**用独立分支管理你的二开代码，`main` 分支保持与 upstream 同步。**
@@ -22,14 +22,23 @@ origin/dev     ──────────▲──▲──▲──  (你�
 ## 初始化开发分支
 
 ```bash
-# 1. 基于当前 main 创建你的开发分支
-git checkout -b dev
+# 1. 添加 upstream remote（仅首次）
+git remote add upstream https://github.com/QuantumNous/new-api.git
 
-# 2. 在上面做你的二开修改，然后提交
+# 2. 拉取上游，同步 main
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
+
+# 3. 基于 main 创建开发分支
+git checkout -b dev main
+
+# 4. 在上面做你的二开修改，然后提交
 git add ...
 git commit -m "feat: 自定义某某功能"
 
-# 3. 推送到你的 fork
+# 5. 推送到你的 fork
 git push -u origin dev
 ```
 
@@ -75,10 +84,10 @@ git push -f origin dev
 
 | 场景 | 处理方式 |
 |------|---------|
+| 修改前端页面 | 只改 `web/default/src/` 下的文件，和后端路径天然隔离 |
 | 修改配置文件 | 把敏感配置抽成 `config.local.yml`，加入 `.gitignore` |
 | 修改某个模块 | 尽量通过接口/插件机制扩展，而不是直接改原代码 |
 | 新增文件/模块 | 放在独立目录下（如 `custom/`），不会和 upstream 冲突 |
-| 前端主题/样式 | 用独立主题目录，不走原主题文件 |
 | 数据库迁移 | 新增独立迁移文件，不修改上游已有迁移 |
 
 ## 日常操作速查
@@ -117,7 +126,7 @@ git push origin dev
 
 ## 完全舍弃二开、重新开始
 
-如果你想把 dev 完全重置为与 upstream 一致，保留之前的二开记录：
+如果你想把 dev 完全重置为与上游一致，保留之前的二开记录：
 
 ```bash
 # 备份旧分支

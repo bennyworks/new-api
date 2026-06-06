@@ -1,7 +1,7 @@
 # New API 运维手册
 
 > 项目路径: `/root/opt/token-api-platform`
-> 最后更新: 2026-05-30
+> 最后更新: 2026-06-06
 
 ---
 
@@ -13,7 +13,7 @@
 |------|------|------|------|
 | `nginx-proxy` | `nginxproxy/nginx-proxy:latest` | 反向代理，处理 HTTP/HTTPS | 80, 443 (宿主机) |
 | `acme-companion` | `nginxproxy/acme-companion:latest` | Let's Encrypt SSL 自动签发/续期 | — |
-| `new-api` | `calciumion/new-api:latest` | AI API 网关主程序 | 3000 (内部，随机映射宿主机) |
+| `new-api` | `bennyworks/new-api:latest`（自定义构建） | AI API 网关主程序（含定制前端） | 3000 (内部，随机映射宿主机) |
 | `postgres` | `postgres:15` | 主数据库 | 5432 (内部) |
 | `redis` | `redis:latest` | 缓存 | 6379 (内部) |
 
@@ -41,7 +41,7 @@
 
 | 镜像 | 大小 |
 |------|------|
-| `calciumion/new-api:latest` | 184 MB |
+| `bennyworks/new-api:latest` | ~184 MB |
 | `postgres:15` | 445 MB |
 | `redis:latest` | 143 MB |
 | `nginxproxy/nginx-proxy:latest` | 181 MB |
@@ -218,15 +218,72 @@ mkdir -p /root/opt/token-api-platform/backups
 ```
 
 ---
+## 六、构建自定义镜像
 
-## 六、升级 new-api
+本项目对前端首页有定制化修改。官方 `calciumion/new-api` 镜像不包含这些修改，因此需自行构建并推送镜像。
 
-### 6.1 升级步骤
+### 6.1 版本管理策略
+
+```
+upstream/main ──→ origin/main（纯上游镜像）──→ dev（自定义提交）
+                                                   │
+                                                   └── 前端首页定制
+```
+
+- `main`：紧跟 `upstream/main`，不做任何自定义修改
+- `dev`：工作分支，承载所有自定义提交（前端改动 + 运维配置）
+
+日常同步上游：
+
+```bash
+git checkout main && git pull upstream main && git push origin main
+git checkout dev && git merge main
+```
+
+### 6.2 构建镜像
+
+项目根目录 `Dockerfile` 会构建前端（`web/default/`）并嵌入 Go 二进制，产出包含自定义前端的完整镜像。
+
+```bash
+cd /Users/chenjianbin/Documents/git_workspace/new-api
+
+# 构建镜像
+docker build -t bennyworks/new-api:latest .
+
+# 带版本号构建
+docker build -t bennyworks/new-api:latest -t bennyworks/new-api:v$(cat VERSION) .
+```
+
+### 6.3 推送镜像
+
+```bash
+# 登录 Docker Hub
+docker login
+
+# 推送
+docker push bennyworks/new-api:latest
+```
+
+### 6.4 生产环境拉取
+
+在生产服务器上，`docker-compose.yml` 已配置为使用 `bennyworks/new-api:latest`：
+
+```bash
+cd /root/opt/token-api-platform
+docker-compose pull new-api
+docker-compose up -d --no-deps new-api
+```
+
+---
+
+## 七、升级 new-api
+
+### 7.1 升级步骤
 
 ```bash
 cd /root/opt/token-api-platform
 
-# 拉取最新镜像
+# 拉取最新自定义镜像
 docker-compose pull new-api
 
 # 重启服务 (数据库和缓存不受影响)
@@ -236,12 +293,12 @@ docker-compose up -d --no-deps new-api
 docker-compose logs -f new-api
 ```
 
-### 6.2 回滚
+### 7.2 回滚
 
 如需回滚到指定版本，编辑 `docker-compose.yml` 中 new-api 的 `image` 字段：
 
 ```yaml
-image: calciumion/new-api:v1.0.0-rc.9
+image: bennyworks/new-api:v1.0.0-rc.9
 ```
 
 然后重启：
@@ -251,9 +308,9 @@ docker-compose up -d --no-deps new-api
 
 ---
 
-## 七、安全加固
+## 八、安全加固
 
-### 7.1 必须修改的默认密码
+### 8.1 必须修改的默认密码
 
 `docker-compose.yml` 中以下密码应尽快修改：
 
@@ -266,7 +323,7 @@ docker-compose up -d --no-deps new-api
 
 > ⚠️ 修改密码后需执行 `docker-compose down && docker-compose up -d` 完全重启。
 
-### 7.2 生产环境建议
+### 8.2 生产环境建议
 
 1. 取消注释 `SESSION_SECRET` 并设置为随机字符串：
    ```yaml
@@ -277,9 +334,9 @@ docker-compose up -d --no-deps new-api
 
 ---
 
-## 八、日志查看
+## 九、日志查看
 
-### 8.1 应用日志
+### 9.1 应用日志
 
 ```bash
 # 实时日志
@@ -293,13 +350,13 @@ ls ./logs/
 tail -f ./logs/new-api.log
 ```
 
-### 8.2 Nginx 访问日志
+### 9.2 Nginx 访问日志
 
 ```bash
 docker exec nginx-proxy cat /var/log/nginx/access.log
 ```
 
-### 8.3 PostgreSQL 日志
+### 9.3 PostgreSQL 日志
 
 ```bash
 docker-compose logs postgres
@@ -307,9 +364,9 @@ docker-compose logs postgres
 
 ---
 
-## 九、故障排查
+## 十、故障排查
 
-### 9.1 服务无法访问
+### 10.1 服务无法访问
 
 ```bash
 # 1. 检查容器状态
@@ -325,7 +382,7 @@ docker exec new-api wget -q -O - http://localhost:3000/api/status
 curl -H "Host: <你的域名>" http://localhost/api/status
 ```
 
-### 9.2 数据库连接问题
+### 10.2 数据库连接问题
 
 ```bash
 # 检查 PostgreSQL 是否运行
@@ -338,7 +395,7 @@ docker exec new-api sh -c "wget -q -O - postgres:5432 2>&1 || echo 'Connection f
 docker exec -it postgres psql -U root -d new-api
 ```
 
-### 9.3 SSL 证书问题
+### 10.3 SSL 证书问题
 
 ```bash
 # 查看 acme-companion 日志
@@ -351,7 +408,7 @@ docker exec acme-companion /app/signal_le_service
 docker exec nginx-proxy ls -la /etc/nginx/certs/
 ```
 
-### 9.4 磁盘空间不足
+### 10.4 磁盘空间不足
 
 ```bash
 # 查看磁盘使用
@@ -366,7 +423,7 @@ docker image prune -a
 docker builder prune
 ```
 
-### 9.5 完全重置
+### 10.5 完全重置
 
 ```bash
 # ⚠️ 危险操作 — 删除所有数据
@@ -378,7 +435,7 @@ docker-compose up -d
 
 ---
 
-## 十、常用命令速查
+## 十一、常用命令速查
 
 ```bash
 # 在项目目录执行
